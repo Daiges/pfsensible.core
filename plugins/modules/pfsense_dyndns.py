@@ -38,7 +38,7 @@ options:
     type: str
   interface:
     description: TODO
-    required: true
+    default: wan
     type: str
   check_ip_mode:
     description: TODO
@@ -80,7 +80,7 @@ options:
     type: str
   requestif:
     description: TODO
-    required: true
+    default: wan
     type: str
   zoneid:
     description: TODO
@@ -97,10 +97,6 @@ options:
   resultmatch:
     description: TODO
     type: str
-  id:
-    description: The unique identifier for this entry
-    type: int
-
 """
 
 EXAMPLES = """
@@ -108,11 +104,9 @@ EXAMPLES = """
   pfsense_dyndns:
     descr: "foo.example.com DDNS"
     type: cloudflare
-    requestif: wan
-    interface: wan
     host: foo
     domainname: example.com
-    password: {{ cloudflare_api_token }}
+    password: "{{ cloudflare_api_token }}"
 
 
 - name: Remove dyndns entry
@@ -120,19 +114,17 @@ EXAMPLES = """
     state: absent
     descr: "foo.example.com DDNS"
     type: cloudflare
-    requestif: wan
-    interface: wan
     host: foo
     domainname: example.com
-    password: {{ cloudflare_api_token }}
+    password: "{{ cloudflare_api_token }}"
 """
-
+# TODO: These examples represent what currently happens, but that is not the desired output
 RETURN = """
 commands:
     description: the set of commands that would be pushed to the remote device (if pfSense had a CLI)
     returned: always
     type: list
-    sample: ["TODO", "TODO"]
+    sample: ["create dyndns 'Test Entry', host='foo', domainname='example.com'", "delete dyndns 'Test Entry'"]
 """
 
 from ansible.module_utils.basic import AnsibleModule
