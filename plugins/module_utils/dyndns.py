@@ -14,8 +14,8 @@ DYNDNS_ARGUMENT_SPEC = dict(
     type=dict(required=True, choices=['all-inkl', 'azure', 'azurev6', 'citynetwork', 'cloudflare', 'cloudflare-v6', 'cloudns', 'custom', 'custom-v6', 'desec', 'desec-v6', 'digitalocean', 'digitalocean-v6', 'dnsexit', 'dnsimple', 'dnsimple-v6', 'dnsmadeeasy', 'dnsomatic', 'domeneshop', 'domeneshop-v6', 'dreamhost', 'dreamhost-v6', 'duiadns', 'duiadns-v6', 'dyfi', 'dyndns', 'dyndns-custom', 'dyndns-static', 'dyns', 'dynv6', 'dynv6-v6', 'easydns', 'easydns-v6', 'eurodns', 'freedns', 'freedns-v6', 'freedns2', 'freedns2-v6', 'glesys', 'gandi-livedns', 'gandi-livedns-v6', 'godaddy', 'godaddy-v6', 'googledomains', 'gratisdns', 'he-net', 'he-net-v6', 'he-net-tunnelbroker', 'hover', 'linode', 'linode-v6', 'loopia', 'luadns', 'luadns-v6', 'mythicbeasts', 'mythicbeasts-v6', 'name.com', 'name.com-v6', 'namecheap', 'nicru', 'nicru-v6', 'noip', 'noip-v6', 'noip-free', 'noip-free-v6', 'onecom', 'onecom-v6', 'ods', 'opendns', 'ovh-dynhost', 'route53', 'route53-v6', 'selfhost', 'spdyn', 'spdyn-v6', 'strato', 'yandex', 'yandex-v6', 'zoneedit', 'porkbun', 'porkbun-v6']),
     interface=dict(default='wan', type='str'),
     check_ip_mode=dict(required=False, choices=['default', 'always', 'never']),
-    host=dict(required=True, type='str'),
-    domainname=dict(required=True, type='str'),
+    host=dict(required=False, type='str'),
+    domainname=dict(required=False, type='str'),
     proxied=dict(default=False,type='bool'),
     mx=dict(required=False, type='str'),
     wildcard=dict(required=False, type='bool'),
@@ -66,6 +66,7 @@ class PFSenseDyndnsModule(PFSenseModuleBase):
         obj['descr'] = params['descr']
         self._get_ansible_param(obj, 'host')
         self._get_ansible_param(obj, 'domainname')
+        self._get_ansible_param(obj, 'updateurl')
         if params['state'] == 'present':
             self._get_ansible_param(obj, 'state')
             self._get_ansible_param_bool(obj, 'enable')
@@ -82,14 +83,21 @@ class PFSenseDyndnsModule(PFSenseModuleBase):
             self._get_ansible_param(obj, 'zoneid')
             self._get_ansible_param(obj, 'ttl')
             self._get_ansible_param(obj, 'maxcacheage')
-            self._get_ansible_param(obj, 'updateurl')
             self._get_ansible_param(obj, 'resultmatch')
 
         return obj
 
-    # TODO: Some sort of parameter validation maybe?
+    # TODO: Improve parameter validation
     def _validate_params(self):
         """ do some extra checks on input parameters """
+        params = self.params
+        if params['type'] == 'custom':
+            if not params['updateurl']:
+                self.module.fail_json(msg='updateurl is required for custom entries')
+        else:
+            if not params['domainname'] and not params['host']:
+                self.module.fail_json(msg='domainname or host is required for non-custom entries')
+
 
     ##############################
     # XML processing
@@ -108,7 +116,7 @@ class PFSenseDyndnsModule(PFSenseModuleBase):
     def _find_target(self):
         """ find the XML target_elt """
         for dyndns_elt in self.root_elt:
-            if dyndns_elt.find('domainname').text == self.obj['domainname'] and dyndns_elt.find('host').text == self.obj['host']:
+            if getattr(dyndns_elt.find('domainname'), 'text', '') == self.obj.get('domainname', '') and getattr(dyndns_elt.find('host'), 'text', '') == self.obj.get('host', '') and getattr(dyndns_elt.find('updateurl'), 'text', '') == self.obj.get('updateurl', ''):
                 return dyndns_elt
         return None
 
@@ -139,10 +147,12 @@ send_event("service reload dyndnsall");
         if before is None:
             values += self.format_cli_field(self.obj, 'host')
             values += self.format_cli_field(self.obj, 'domainname')
+            values += self.format_cli_field(self.obj, 'updateurl')
             values += self.format_cli_field(self.params, 'enable', fvalue=self.fvalue_bool, default=True)
         else:
             values += self.format_updated_cli_field(self.obj, before, 'host', add_comma=(values))
             values += self.format_updated_cli_field(self.obj, before, 'domainname', add_comma=(values))
+            values += self.format_updated_cli_field(self.obj, before, 'updateurl', add_comma=(values))
             values += self.format_updated_cli_field(self.obj, before, 'enable', fvalue=self.fvalue_bool, default=True, add_comma=(values))
 
         return values
